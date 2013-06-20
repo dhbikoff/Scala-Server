@@ -1,4 +1,4 @@
-import java.io.{BufferedInputStream, BufferedOutputStream, PrintStream}
+import java.io._
 import java.net.ServerSocket
 
 object SimpleServer {
@@ -8,7 +8,7 @@ object SimpleServer {
       server: String = "Server: CSWS/0.01 (Crappy Scala Web Server)",
       content_type: String = "Content-Type: text/html; charset=UTF-8", 
       connection: String = "Connection: close",
-      empty: String = "") {
+      empty: String = "\r\n") {
   
     def toList: List[String] = List(status, date, server, content_type, connection, empty)
     override def toString = this.toList.map( x => x + "\r\n" ).mkString
@@ -35,14 +35,32 @@ object SimpleServer {
     serverSocket.close
   }
 
+  def fileToString(filePath: String): String = {
+    val file = new File(filePath)
+    if (file.exists && file.isFile) {
+      val reader = new BufferedReader(new FileReader(filePath))
+      val stringBuilder = new StringBuilder
+      val ls = System.getProperty("line.separator")
+
+      while (reader.ready) {
+        var line = reader.readLine
+        stringBuilder.append(line)
+        stringBuilder.append(ls)
+      }  
+      stringBuilder.toString
+    }
+    else null
+  }
+
   def router(input: String):String = {
-    val split = input.split(" ")
-    split(1) match {
-      case "/" => {
-        val r = ResponseHeader("HTTP/1.0 200 OK").toString
-        r + r
-      }
-      case _   => ResponseHeader("HTTP/1.0 404 Not Found") + "<HTML><h1>404 NOT FOUND</h1></h1>"
+    val split = {
+      val s = input.split(" ")(1)
+      if (s == "/") "/index.html"
+      else s
+    }
+    fileToString("public" + split) match {
+      case null => ResponseHeader("HTTP/1.0 404 Not Found").toString + "<HTML><h1>404 NOT FOUND</h1></h1>"
+      case body => ResponseHeader("HTTP/1.0 200 OK").toString + body
     }
   }
 }
