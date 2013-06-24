@@ -5,7 +5,7 @@ object SimpleServer {
 
   case class ResponseHeader(status: String, 
       date: String = "Date: " + new java.util.Date,
-      server: String = "Server: CSWS/0.01 (Crappy Scala Web Server)",
+      server: String = "Server: SSWS/0.01 (Simple Scala Web Server)",
       content: String = "Content-Type: text/html; charset=UTF-8", 
       connection: String = "Connection: close",
       empty: String = "\r\n") {
@@ -16,27 +16,6 @@ object SimpleServer {
 
   case class Response(header: ResponseHeader, body: String) {
     override def toString = header.toString + body
-  }
-
-  def main(args: Array[String]) = {
-    val serverSocket = new ServerSocket(8000)
-    while(true) {
-      val clientSocket = serverSocket.accept
-      val inputStream = new BufferedInputStream(clientSocket.getInputStream)
-      val outputStream = new PrintStream(new BufferedOutputStream(clientSocket.getOutputStream))
-
-      while(inputStream.available < 1) { Thread.sleep(1000) } 
-
-      val buffer = new Array[Byte](inputStream.available)
-      inputStream.read(buffer)
-      val input = new String(buffer)
-      println(input)
-      val output = router(input)
-      outputStream.print(output)
-      outputStream.flush
-      clientSocket.close
-    }
-    serverSocket.close
   }
 
   def fileToString(filePath: String): String = { 
@@ -62,8 +41,10 @@ object SimpleServer {
       else (file split ('.')).last
     }
     val body = fileToString("public" + file)
-    if (body != null) ResponseHeader(status = "HTTP/1.0 200 OK", content = "text/" + extension).toString + body
-    else return ResponseHeader("HTTP/1.0 404 Not Found").toString + "<HTML><h1>404 NOT FOUND</h1></h1>"
+    if (body != null) ResponseHeader(status = "HTTP/1.0 200 OK", 
+                                     content = "text/" + extension).toString + body
+    else return ResponseHeader("HTTP/1.0 404 Not Found").toString + 
+                               "<HTML><h1>404 NOT FOUND</h1></h1>"
   }
 
   def router(input: String): String = {
@@ -73,5 +54,26 @@ object SimpleServer {
       else s
     }
     response(route)
+  }
+
+  def main(args: Array[String]) = {
+    val serverSocket = new ServerSocket(8000)
+    while(true) {
+      val clientSocket = serverSocket.accept
+      val inputStream = new BufferedInputStream(clientSocket.getInputStream)
+      val outputStream = new PrintStream(new BufferedOutputStream(clientSocket.getOutputStream))
+
+      while(inputStream.available < 1) { Thread.sleep(1000) } 
+
+      val buffer = new Array[Byte](inputStream.available)
+      inputStream.read(buffer)
+      val input = new String(buffer)
+      println(input)
+      val output = router(input)
+      outputStream.print(output)
+      outputStream.flush
+      clientSocket.close
+    }
+    serverSocket.close
   }
 }
