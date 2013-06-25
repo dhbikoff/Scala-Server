@@ -21,13 +21,14 @@ object SimpleServer {
     def getBytes = header.getBytes ++ body
   }
 
-  def fileToBytes(filePath: String): Array[Byte] = { 
+  def fileToBytes(filePath: String): Option[Array[Byte]] = { 
     val file = new File(filePath)    
     if (file.exists && file.isFile) {
       val src = Source.fromFile(file)(Codec.ISO8859)  
-      (src map { ch => ch.toByte }).toArray
+      val bytes = (src map { ch => ch.toByte }).toArray
+      Some(bytes)
     }
-    else null
+    else None
   }
 
   def contentType(ext: String): String = ext match {
@@ -43,17 +44,19 @@ object SimpleServer {
       else (file split ('.')).last
     }
 
-    val body = fileToBytes("public" + file)
-    if (body != null) {
-      val ctype = contentType(extension) 
-      val header =  ResponseHeader(status = "HTTP/1.0 200 OK", 
-                    content = ctype)
-      println("-------RESPONSE-------\n" + header.toString)
-      Response(header, body).getBytes
-    } else {
-      val header = ResponseHeader("HTTP/1.0 404 Not Found")
-      println("-------RESPONSE-------\n" + header.toString)
-      Response(header, "<HTML><h1>404 NOT FOUND</h1></h1>".getBytes).getBytes
+    fileToBytes("public" + file) match {
+      case Some(body) => {
+        val ctype = contentType(extension) 
+        val header =  ResponseHeader(status = "HTTP/1.0 200 OK", 
+          content = ctype)
+        println("-------RESPONSE-------\n" + header.toString)
+        Response(header, body).getBytes
+      } 
+      case None => {
+        val header = ResponseHeader("HTTP/1.0 404 Not Found")
+        println("-------RESPONSE-------\n" + header.toString)
+        Response(header, "<HTML><h1>404 NOT FOUND</h1></h1>".getBytes).getBytes
+      }
     }
   }
 
