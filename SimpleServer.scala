@@ -9,7 +9,7 @@ object SimpleServer {
       server: String = "Server: SSWS/0.01 (Simple Scala Web Server)",
       content: String = "Content-Type: text/html; charset=UTF-8", 
       connection: String = "Connection: close",
-      empty: String = "\r\n") {
+      empty: String = "") {
   
     def toList: List[String] = List(status, date, server, content, connection, empty)
     override def toString = this.toList.map( x => x + "\r\n" ).mkString
@@ -80,7 +80,6 @@ object SimpleServer {
       val input = new String(buffer)
       println("-------REQUEST--------\n" + input)
       val output = router(input)
-      val bytes = output
       outputStream.write(output)
       outputStream.flush
       clientSocket.close
