@@ -1,77 +1,98 @@
 import scala.io._
 import java.io._
-import java.net.ServerSocket
+import java.net._
 
 object SimpleServer {
 
-  case class ResponseHeader(status: String, 
-      date: String = "Date: " + new java.util.Date,
-      server: String = "Server: SSWS/0.01 (Simple Scala Web Server)",
-      content: String = "Content-Type: text/html; charset=UTF-8", 
-      connection: String = "Connection: close",
-      empty: String = "") {
-  
+  case class ResponseHeader(
+    status: String, 
+    date: String = "Date: " + new java.util.Date,
+    server: String = "Server: SSWS/0.01 (Simple Scala Web Server)",
+    content: String = "Content-Type: text/html; charset=UTF-8", 
+    connection: String = "Connection: close",
+    empty: String = "") {
+
     def toList: List[String] = List(status, date, server, content, connection, empty)
     override def toString = this.toList.map( x => x + "\r\n" ).mkString
     def getBytes: Array[Byte] = this.toString.getBytes
   } 
 
-  case class Response(header: ResponseHeader, body: Array[Byte]) {
-    override def toString = header.toString + body
-    def getBytes = header.getBytes ++ body
-  }
-
-  def fileToBytes(filePath: String): Option[Array[Byte]] = { 
-    val file = new File(filePath)    
-    if (file.exists && file.isFile) {
-      val src = Source.fromFile(file)(Codec.ISO8859)  
-      val bytes = (src map { ch => ch.toByte }).toArray
-      Some(bytes)
+  def contentType(path: String): String = {
+    val ext = {
+      if (!path.contains('.')) "html; charset=UTF-8"
+      else (path split ('.')).last
     }
-    else None
-  }
 
-  def contentType(ext: String): String = {
     val ct = "Content-Type: "
     val typeName = ext match {
       case "js" | "css" => "text/" + ext
       case "gif" | "png" | "jpg" => "image/" + ext
       case "pdf" => "application/" + ext
-      case "mp4" => "video/mp4" + ext
+      case "mp4" => "video/" + ext
       case _ => "text/html; charset=UTF-8"
     }
     ct + typeName
   }
 
-  def response(file: String): Array[Byte] = {
-    val extension = {
-      if (!file.contains('.')) "html; charset=UTF-8"
-      else (file split ('.')).last
-    }
-
-    fileToBytes("public" + file) match {
-      case Some(body) => {
-        val ctype = contentType(extension) 
-        val header =  ResponseHeader(status = "HTTP/1.0 200 OK", 
-          content = ctype)
-        println("-------RESPONSE-------\n" + header.toString)
-        Response(header, body).getBytes
-      } 
-      case None => {
-        val header = ResponseHeader("HTTP/1.0 404 Not Found")
-        println("-------RESPONSE-------\n" + header.toString)
-        Response(header, "<HTML><h1>404 NOT FOUND</h1></h1>".getBytes).getBytes
+  def header(fileName: String, found: Boolean): ResponseHeader = {
+    val header = {
+      if (found) {
+        val ctype = contentType(fileName) 
+        ResponseHeader(status = "HTTP/1.0 200 OK", content = ctype)
+      } else {
+        ResponseHeader(status = "HTTP/1.0 404 Not Found") 
       }
     }
+    println("-------RESPONSE-------\n" + header.toString)
+    header
   }
 
-  def router(input: String): Array[Byte] = {
+  def router(input: String): (ResponseHeader, Option[FileInputStream]) = {
     val route = {
       val s = input.split(" ")(1)
       if (s == "/") "/index.html"
       else s
     }
     response(route)
+  }
+
+  def response(filename: String) = {
+    val path = "public/" + filename
+    val found = new File(path).exists
+    val head = header(filename, found)
+    val src = {
+      if (found)
+        Some(new FileInputStream(path))
+      else None
+    }
+    (head, src)
+  }
+
+  implicit class InputStreamForeach(in: FileInputStream) {
+    def foreach(f: Array[Byte] => Unit): Boolean = {
+      val arr = new Array[Byte](4096)
+      var available = 1
+      while (available > 0 ) {
+        available = in.read(arr, 0, 4096)
+        if (available > 0) {
+          try {
+            f(arr)
+          } catch {
+            case e: SocketException => {
+              println("connection closed")
+              available = -1
+              return true
+          }
+            case e: Exception => {
+              println(e.toString)
+              available = -1
+              return true
+            }
+          }        
+        }
+      }
+      false
+    }  
   }
 
   def main(args: Array[String]) = {
@@ -87,11 +108,22 @@ object SimpleServer {
       inputStream.read(buffer)
       val input = new String(buffer)
       println("-------REQUEST--------\n" + input)
+      
       val output = router(input)
-      outputStream.write(output)
-      outputStream.flush
+      val header = output._1
+      val fileStream = output._2
+      println("-------RESPONSE-------\n" + header.toString)
+      outputStream.write(header.getBytes)
+
+      val error = fileStream match {
+        case Some(fs) => fs foreach (outputStream.write(_))
+        case None => false 
+      }
+
+      if (!error) outputStream.flush
       clientSocket.close
-    }
+      
+   } 
     serverSocket.close
   }
 }
