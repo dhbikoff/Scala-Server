@@ -31,11 +31,16 @@ object SimpleServer {
     else None
   }
 
-  def contentType(ext: String): String = ext match {
-    case "js" | "css" => "Content-Type: text/" + ext
-    case "gif" | "png" | "jpg" => "Content-Type: image/" + ext
-    case "pdf" => "Content-Type: application/pdf"
-    case _ => "Content-Type: text/html; charset=UTF-8"
+  def contentType(ext: String): String = {
+    val ct = "Content-Type: "
+    val typeName = ext match {
+      case "js" | "css" => "text/" + ext
+      case "gif" | "png" | "jpg" => "image/" + ext
+      case "pdf" => "application/" + ext
+      case "mp4" => "video/mp4" + ext
+      case _ => "text/html; charset=UTF-8"
+    }
+    ct + typeName
   }
 
   def response(file: String): Array[Byte] = {
