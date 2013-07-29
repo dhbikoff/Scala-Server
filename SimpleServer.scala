@@ -25,10 +25,12 @@ object SimpleServer {
 
     val ct = "Content-Type: "
     val typeName = ext match {
-      case "js" | "css" => "text/" + ext
+      case "css" => "text/" + ext
+      case "js" => "text/javascript"
       case "gif" | "png" | "jpg" => "image/" + ext
       case "pdf" => "application/" + ext
       case "mp4" => "video/" + ext
+      case "txt" => "text/plain"
       case _ => "text/html; charset=UTF-8"
     }
     ct + typeName
@@ -43,11 +45,10 @@ object SimpleServer {
         ResponseHeader(status = "HTTP/1.0 404 Not Found") 
       }
     }
-    println("-------RESPONSE-------\n" + header.toString)
     header
   }
 
-  def router(input: String): (ResponseHeader, Option[FileInputStream]) = {
+  def router(input: String): (ResponseHeader, Option[BufferedSource]) = {
     val route = {
       val s = input.split(" ")(1)
       if (s == "/") "/index.html"
@@ -61,38 +62,24 @@ object SimpleServer {
     val found = new File(path).exists
     val head = header(filename, found)
     val src = {
-      if (found)
-        Some(new FileInputStream(path))
+      if (found) {
+        val in = new FileInputStream(path)
+        Some(new BufferedSource(in)(Codec.ISO8859))
+      }
       else None
     }
     (head, src)
   }
 
-  implicit class InputStreamForeach(in: FileInputStream) {
-    def foreach(f: Array[Byte] => Unit): Boolean = {
-      val arr = new Array[Byte](4096)
-      var available = 1
-      while (available > 0 ) {
-        available = in.read(arr, 0, 4096)
-        if (available > 0) {
-          try {
-            f(arr)
-          } catch {
-            case e: SocketException => {
-              println("connection closed")
-              available = -1
-              return true
-          }
-            case e: Exception => {
-              println(e.toString)
-              available = -1
-              return true
-            }
-          }        
-        }
-      }
-      false
-    }  
+  def sendResponseBody(fileStream: Option[BufferedSource], out: BufferedOutputStream) = fileStream match {
+    case Some(fs) => {
+      try {
+        fs foreach { x => out.write(x) }
+      } catch {
+        case e: SocketException => {}
+      }  
+    }                
+    case None => {}      
   }
 
   def main(args: Array[String]) = {
@@ -114,16 +101,18 @@ object SimpleServer {
       val fileStream = output._2
       println("-------RESPONSE-------\n" + header.toString)
       outputStream.write(header.getBytes)
-
-      val error = fileStream match {
-        case Some(fs) => fs foreach (outputStream.write(_))
-        case None => false 
-      }
-
-      if (!error) outputStream.flush
-      clientSocket.close
+      sendResponseBody(fileStream, outputStream)
       
-   } 
+      try {
+        outputStream.flush
+        inputStream.close
+        outputStream.close
+        clientSocket.close 
+      } catch {
+        case e: IOException => {} 
+      }
+      
+    }
     serverSocket.close
   }
 }
