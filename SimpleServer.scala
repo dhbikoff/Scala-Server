@@ -27,7 +27,8 @@ object SimpleServer {
     val typeName = ext match {
       case "css" => "text/" + ext
       case "js" => "text/javascript"
-      case "gif" | "png" | "jpg" => "image/" + ext
+      case "gif" | "png" => "image/" + ext
+      case "jpg" => "image/jpeg"
       case "pdf" => "application/" + ext
       case "mp4" => "video/" + ext
       case "txt" => "text/plain"
