@@ -18,11 +18,7 @@ object SimpleServer {
   } 
 
   def contentType(path: String): String = {
-    val ext = {
-      if (!path.contains('.')) "html; charset=UTF-8"
-      else (path split ('.')).last
-    }
-
+    val ext = (path split ('.')).last
     val ct = "Content-Type: "
     val typeName = ext match {
       case "css" => "text/" + ext
@@ -49,7 +45,7 @@ object SimpleServer {
     header
   }
 
-  def router(input: String): (ResponseHeader, Option[BufferedSource]) = {
+  def router(input: String): (ResponseHeader, BufferedSource) = {
     val route = {
       val s = input.split(" ")(1)
       if (s == "/") "/index.html"
@@ -65,22 +61,22 @@ object SimpleServer {
     val src = {
       if (found) {
         val in = new FileInputStream(path)
-        Some(new BufferedSource(in)(Codec.ISO8859))
+        new BufferedSource(in)(Codec.ISO8859)
       }
-      else None
+      else {
+        val in = new FileInputStream("public/error.html")
+        new BufferedSource(in)(Codec.ISO8859)
+      }
     }
     (head, src)
   }
 
-  def sendResponseBody(fileStream: Option[BufferedSource], out: BufferedOutputStream) = fileStream match {
-    case Some(fs) => {
+  def sendResponseBody(fileStream: BufferedSource, outStream: BufferedOutputStream) = {
       try {
-        fs foreach { x => out.write(x) }
+        fileStream foreach { x => outStream.write(x) }
       } catch {
         case e: SocketException => {}
-      }  
-    }                
-    case None => {}      
+      }
   }
 
   def main(args: Array[String]) = {
