@@ -1,3 +1,5 @@
+import scala.actors.Actor
+import scala.actors.Actor._
 import scala.io._
 import java.io._
 import java.net._
@@ -26,7 +28,8 @@ object SimpleServer {
       case "gif" | "png" => "image/" + ext
       case "jpg" => "image/jpeg"
       case "pdf" => "application/" + ext
-      case "mp4" => "video/" + ext
+      case "mp4" | "avi" | "mov" | "m4v" | 
+        "ogv" | "flv" | "webm" | "asf" => "video/" + ext
       case "txt" => "text/plain"
       case _ => "text/html; charset=UTF-8"
     }
@@ -79,15 +82,8 @@ object SimpleServer {
       }
   }
 
-  def main(args: Array[String]) = {
-    val serverSocket = new ServerSocket(8000)
-    while(true) {
-      val clientSocket = serverSocket.accept
-      val inputStream = new BufferedInputStream(clientSocket.getInputStream)
-      val outputStream = new BufferedOutputStream(clientSocket.getOutputStream)
-
-      while(inputStream.available < 1) {} 
-
+  class ConResponse(clientSocket: Socket, inputStream: BufferedInputStream, outputStream: BufferedOutputStream) extends Actor {
+    def act() {
       val buffer = new Array[Byte](inputStream.available)
       inputStream.read(buffer)
       val input = new String(buffer)
@@ -107,8 +103,20 @@ object SimpleServer {
         clientSocket.close 
       } catch {
         case e: IOException => {} 
-      }
-      
+      } 
+    }
+  }
+
+  def main(args: Array[String]) = {
+    val serverSocket = new ServerSocket(8000)
+    while(true) {
+      val clientSocket = serverSocket.accept
+      val inputStream = new BufferedInputStream(clientSocket.getInputStream)
+      val outputStream = new BufferedOutputStream(clientSocket.getOutputStream)
+
+      while(inputStream.available < 1) {} 
+      val resp = new ConResponse(clientSocket, inputStream, outputStream)
+      resp.start
     }
     serverSocket.close
   }
