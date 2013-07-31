@@ -1,11 +1,11 @@
 import scala.actors.Actor
-import scala.actors.Actor._
 import scala.io._
 import java.io._
+import java.lang.Thread
 import java.net._
 
-object SimpleServer {
-
+class ConResponse(clientSocket: Socket) extends Runnable {
+    
   case class ResponseHeader(
     status: String, 
     date: String = "Date: " + new java.util.Date,
@@ -74,50 +74,43 @@ object SimpleServer {
     (head, src)
   }
 
-  def sendResponseBody(fileStream: BufferedSource, outStream: BufferedOutputStream) = {
+  def sendResponseBody(fileStream: BufferedSource, outStream: OutputStream) = {
       try {
-        fileStream foreach { x => outStream.write(x) }
+        fileStream foreach { outStream write _ }
       } catch {
         case e: SocketException => {}
+        case e: IOException => {}
       }
   }
 
-  class ConResponse(clientSocket: Socket, inputStream: BufferedInputStream, outputStream: BufferedOutputStream) extends Actor {
-    def act() {
-      val buffer = new Array[Byte](inputStream.available)
-      inputStream.read(buffer)
-      val input = new String(buffer)
-      println("-------REQUEST--------\n" + input)
-      
-      val output = router(input)
-      val header = output._1
-      val fileStream = output._2
-      println("-------RESPONSE-------\n" + header.toString)
-      outputStream.write(header.getBytes)
-      sendResponseBody(fileStream, outputStream)
-      
-      try {
-        outputStream.flush
-        inputStream.close
-        outputStream.close
-        clientSocket.close 
-      } catch {
-        case e: IOException => {} 
-      } 
-    }
-  }
+  def run() { 
+    val in = clientSocket.getInputStream
+    while(in.available < 1) {} 
+    val buffer = new Array[Byte](in.available)
+    in.read(buffer)
+    val request = new String(buffer)
+    println("-------REQUEST--------\n" + request)
 
+    val output = router(request)
+    val header = output._1
+    val fileStream = output._2
+    println("-------RESPONSE-------\n" + header.toString)
+    val out = clientSocket.getOutputStream
+    out.write(header.getBytes)
+    sendResponseBody(fileStream, out)
+    clientSocket.close
+  }
+}
+
+object SimpleServer {
   def main(args: Array[String]) = {
     val serverSocket = new ServerSocket(8000)
     while(true) {
       val clientSocket = serverSocket.accept
-      val inputStream = new BufferedInputStream(clientSocket.getInputStream)
-      val outputStream = new BufferedOutputStream(clientSocket.getOutputStream)
-
-      while(inputStream.available < 1) {} 
-      val resp = new ConResponse(clientSocket, inputStream, outputStream)
-      resp.start
+      val resp = new Thread(new ConResponse(clientSocket))
+      resp.start()
     }
     serverSocket.close
   }
-}
+}  
+
