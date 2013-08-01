@@ -1,8 +1,6 @@
-import scala.actors.Actor
-import scala.io._
-import java.io._
-import java.lang.Thread
-import java.net._
+import java.io.{File, FileInputStream, IOException, OutputStream}
+import java.net.{ServerSocket, Socket, SocketException}
+import scala.io.{BufferedSource, Codec}
 
 class ConResponse(clientSocket: Socket) extends Runnable {
     
@@ -50,7 +48,8 @@ class ConResponse(clientSocket: Socket) extends Runnable {
 
   def router(input: String): (ResponseHeader, BufferedSource) = {
     val route = {
-      val s = input.split(" ")(1)
+      val split = input.split(" ")
+      val s = if (split.length > 1) split(1) else "/"
       if (s == "/") "/index.html"
       else s
     }
@@ -85,12 +84,11 @@ class ConResponse(clientSocket: Socket) extends Runnable {
 
   def run() { 
     val in = clientSocket.getInputStream
-    while(in.available < 1) {} 
+    while(in.available < 1) {} // wait for request
     val buffer = new Array[Byte](in.available)
     in.read(buffer)
     val request = new String(buffer)
     println("-------REQUEST--------\n" + request)
-
     val output = router(request)
     val header = output._1
     val fileStream = output._2
@@ -98,7 +96,7 @@ class ConResponse(clientSocket: Socket) extends Runnable {
     val out = clientSocket.getOutputStream
     out.write(header.getBytes)
     sendResponseBody(fileStream, out)
-    clientSocket.close
+    clientSocket.close() // closes in and out streams
   }
 }
 
