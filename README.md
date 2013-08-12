@@ -5,7 +5,7 @@ Simple Server
 >
 >-Runs on port 8000.
 >
->-Add files to serve to public/
+>-Add files to public/
 >
 >-Logs request and response headers to stdout.
 >
