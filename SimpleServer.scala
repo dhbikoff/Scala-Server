@@ -36,7 +36,7 @@ class ConResponse(clientSocket: Socket) extends Runnable {
       case "js" => "text/javascript"
       case "gif" | "png" => "image/" + ext
       case "jpg" | "jpeg" => "image/jpeg"
-      case "pdf" => "application/" + ext
+      case "pdf" | "json" => "application/" + ext
       case "mp4" | "avi" | "mov" | "m4v" | 
         "ogv" | "flv" | "webm" | "asf" => "video/" + ext
       case "txt" => "text/plain"
