@@ -9,5 +9,6 @@ Simple Server
 >
 >-Logs request and response headers to stdout.
 >
->-Uses multithreading to handle concurrent requests.
+>-Simple version uses multithreading for each response/request.
 >
+>-Actor version uses an Akka Actor for each request/response.
